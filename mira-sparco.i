@@ -8,10 +8,54 @@
 
 func parse_arguments (plugin, opt)
 /* DOCUMENT parse_arguments(plugin, opt)
+
+  plugin is a hash_table with following arguments:
+
+  plugin.sparco = name of the model in SPARCO. It can be:
+                       "star", "binary", "UD".
+  plugin.sparco_params = vector of necessary parameters for the
+                         models
+  plugin.sparco_w0 = central wavelenghts for computation of chromaticity
+  plugin.sparco_func = function to linearly add the SPARCO model to
+                            complex visibilities from the image.
+
+  plugin.sparco_image = to be implemented...
+
+  Creation of plugin hash_table in this function ?
 */
 
 {
 
+  /* Read SPARCO settings */
+  sparco = opt.sparco;
+  params = opt.params;
+
+  if (!is_void(sparco)) {
+    if ( !is_void(w0) ) {
+      w0 *= 1e-6;
+    };
+    if (is_void(sparco) ) {
+      opt_error, "no sparco model specified ";
+    } else if (sparco=="star") {
+      if (numberof(params)!=2 | params(1) >=1. | params(1) <0.) {
+        opt_error, "sparco/star takes a 2-parameters vector for ´-params´: [fs,denv].";
+      };
+    } else if (sparco == "binary") {
+      if (numberof(params)!=5 | params(1) >=1 | params(1) <0 | params(3) >=1 | params(3) <0 | params(1) + params(3) >= 1) {
+        opt_error, "sparco/binary takes a 5-parameters vector for ´-params´: [fs,denv,fbin,xbin,ybin].";
+      };
+    } else if (sparco == "UD") {
+      if (numberof(params)!=3 | params(1) >=1 | params(1) <0) {
+        opt_error, "sparco/UD takes a 3-parameters vector for ´-params´: [fs,denv,UD].";
+      };
+    } else if (sparco == "image") {
+      opt_error, "not implemented yet...";
+    } else {
+      opt_error, "the " + sparco + " model is not implemented in sparco";
+    };
+  };
+
+h_set, plugin, w0=w0;
 
 }
 
@@ -26,7 +70,18 @@ func tweak_complex_visibilities (master, vis)
 */
 {
 
+ if (master.plugin.sparco == "star") {
+   vis = mira_sparco_star(master, vis);
+ } else if (master.plugin.sparco == "binary") {
+   vis = mira_sparco_binary(master, vis);
+ } else if (master.plugin.sparco == "UD") {
+   vis = mira_sparco_UD(master, vis);
+ } else if (master.plugin.sparco == "image") {
+   throw, "not implemented yet...";
+   vis = mira_sparco_image(master, vis);
+ };
 
+return vis;
 }
 
 
@@ -39,6 +94,51 @@ func tweak_complex_gradient (master, grd)
 */
 {
 
+  /* Gradient modification for SPARCO */
+  if (master.plugin.sparco == "star" | master.plugin.sparco == "UD" | master.plugin.sparco == "image") {
+
+    fs0 = master.plugin.params(1);
+    denv = master.plugin.params(2);
+    w = master.coords.unique.w;
+    w0 = master.plugin.w0;
+
+    fs = fs0 * (w/w0)^-4;
+    fd = (1-fs0) * (w/w0)^denv;
+    ftot = fs + fd;
+
+    grd_re = grd(1,..);
+    grd_im = grd(2,..);
+
+    grd_re *= ftot / fd;
+    grd_im *= ftot / fd;
+
+    grd = [grd_re, grd_im];
+    grd = transpose(grd);
+
+  } else if ( master.plugin.sparco == "binary") {
+
+    fs0 = master.plugin.params(1);
+    denv = master.plugin.params(2);
+    fbin0 = master.plugin.params(3);
+    w = master.coords.unique.w;
+    w0 = master.plugin.w0;
+
+    fs = fs0 * (w/w0)^-4;
+    fbin = fbin0 * (w/w0)^-4;
+    fd = (1-fs0-fbin0) * (w/w0)^denv;
+    ftot = fs + fd + fbin;
+
+    grd_re = grd(1,..);
+    grd_im = grd(2,..);
+
+    grd_re *= ftot / fd;
+    grd_im *= ftot / fd;
+
+    grd = [grd_re, grd_im];
+    grd = transpose(grd);
+  };
+
+  return grd
 
 }
 
@@ -59,15 +159,14 @@ func mira_sparco_star(master)
 {
   local vis, vis_re, vis_im, vis_amp, vis_phi, fs0, denv;
 
+  vis_re = vis(1,..);
+  vis_im = vis(2,..);
 
-  eq_nocopy, vis, mira_get_model_vis(master);
-  eq_nocopy, vis_re, mira_get_model_vis_re(master);
-  eq_nocopy, vis_im, mira_get_model_vis_im(master);
+  fs0 = master.plugin.params(1);
+  denv = master.plugin.params(2);
+  w = master.coord.unique.w;
+  w0 = master.plugin.w0;
 
-  fs0 = master.params(1);
-  denv = master.params(2);
-  w = master.w;
-  w0 = master.w0;
   fs = fs0 * (w/w0)^-4;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
@@ -81,9 +180,7 @@ func mira_sparco_star(master)
   vis = [vis_re, vis_im];
   vis = transpose(vis);
 
-  h_set, master, model_vis_re = vis_re, model_vis_im = vis_im, model_vis = vis;
-
-  return master;
+  return vis;
 };
 
 func mira_sparco_binary(master)
@@ -104,25 +201,24 @@ func mira_sparco_binary(master)
 {
   local vis, vis_re, vis_im, vis_amp, vis_phi, fs0, denv;
 
+  vis_re = vis(1,..);
+  vis_im = vis(2,..);
 
-  eq_nocopy, vis, mira_get_model_vis(master);
-  eq_nocopy, vis_re, mira_get_model_vis_re(master);
-  eq_nocopy, vis_im, mira_get_model_vis_im(master);
+  fs0 = master.plugin.params(1);
+  denv = master.plugin.params(2);
+  fbin = master.plugin.params(3);
+  xbin = master.plugin.params(4) * MIRA_MAS;
+  ybin = master.plugin.params(5) * MIRA_MAS;
+  w = master.coords.unique.w;
+  w0 = master.plugin.w0;
 
-  fs0 = master.params(1);
-  denv = master.params(2);
-  fbin = master.params(3);
-  xbin = master.params(4) * MIRA_MAS;
-  ybin = master.params(5) * MIRA_MAS;
-  w = master.w;
-  w0 = master.w0;
   fs = fs0 * (w/w0)^-4;
   fbin = fbin0 * (w/w0)^-4;
   fd = (1-fs0-fbin0) * (w/w0)^denv;
   ftot = fs + fd + fbin;
 
-  u = master.u;
-  v = master.v;
+  u = master.coords.unique.u / w;
+  v = master.coords.unique.v / w;
 
   Vbin_re = cos( -2*pi*(xbin*u + ybin*v) );
   Vbin_im = sin( -2*pi*(xbin*u + ybin*v) );
@@ -136,9 +232,7 @@ func mira_sparco_binary(master)
   vis = [vis_re, vis_im];
   vis = transpose(vis);
 
-  h_set, master, model_vis_re = vis_re, model_vis_im = vis_im, model_vis = vis;
-
-  return master;
+  return vis;
 };
 
 func mira_sparco_UD(master, vis)
@@ -157,8 +251,8 @@ func mira_sparco_UD(master, vis)
 {
   local vis, vis_re, vis_im, vis_amp, vis_phi, fs0, denv, B, UD, w;
 
-  vis_re = vis_re(1,..);
-  vis_im = vis_re(2,..);
+  vis_re = vis(1,..);
+  vis_im = vis(2,..);
 
   fs0 = master.plugin.params(1);
   denv = master.plugin.params(2);
