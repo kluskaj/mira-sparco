@@ -11,7 +11,7 @@ func parse_arguments (plugin, opt)
 
   plugin is a hash_table with following arguments:
 
-  plugin.sparco = name of the model in SPARCO. It can be:
+  plugin.sparco_model = name of the model in SPARCO. It can be:
                        "star", "binary", "UD".
   plugin.sparco_params = vector of necessary parameters for the
                          models
@@ -19,24 +19,27 @@ func parse_arguments (plugin, opt)
   plugin.sparco_func = function to linearly add the SPARCO model to
                             complex visibilities from the image.
 
-  plugin.sparco_image = to be implemented...
+  plugin.sparco_image = a fits-file with the image that will be used as a
+                        SPARCO model
 
   Creation of plugin hash_table in this function ?
 */
 
 {
+  local sparco, params, w0, image;
 
   /* Read SPARCO settings */
-  sparco = opt.sparco;
-  params = opt.params;
+  sparco = plugin.sparco_model;
+  params = plugin.sparco_params;
+  w0 = plugin.sparco_w0;
+  image = plugin.sparco_image;
+
+  if ( !is_void(w0) ) {
+    w0 *= 1e-6;
+  };
 
   if (!is_void(sparco)) {
-    if ( !is_void(w0) ) {
-      w0 *= 1e-6;
-    };
-    if (is_void(sparco) ) {
-      opt_error, "no sparco model specified ";
-    } else if (sparco=="star") {
+    if (sparco=="star") {
       if (numberof(params)!=2 | params(1) >=1. | params(1) <0.) {
         opt_error, "sparco/star takes a 2-parameters vector for ´-params´: [fs,denv].";
       };
@@ -50,12 +53,75 @@ func parse_arguments (plugin, opt)
       };
     } else if (sparco == "image") {
       opt_error, "not implemented yet...";
+    } else if (sparco == "imageBB") {
+      if (numberof(params)!=3 | params(1) >=1 | params(1) <0 | params(2)<=0 | params(3)<=0 ) {
+        opt_error, "sparco/UD takes a 3-parameters vector for ´-params´: [fim0,T0,Timg].";
+      } else if ( !is_string(image) ) {
+        opt_error, "sparco/imageBB takes an string with the name of the fits file";
+      } else {
+        /* Read initial image. */
+        img = mira_read_image(image);
+        naxis = img.naxis;
+        if (naxis < 2 || naxis > 3) {
+          opt_error, "Expecting a 2D/3D sparco model image";
+        }
+        naxis1 = img.naxis1;
+        naxis2 = img.naxis2;
+        naxis3 = (naxis >= 3 ? img.naxis3 : 1);
+        if (naxis == 3) {
+          if (naxis3 != 1) {
+            warn, "Converting 3D image into a 2D grayscaled image";
+          }
+          h_set, img, arr = img.arr(,,avg), naxis=2;
+          h_pop, img, "naxis3";
+          h_pop, img, "crpix3";
+          h_pop, img, "crval3";
+          h_pop, img, "cdelt3";
+          h_pop, img, "cunit3";
+          h_pop, img, "ctype3";
+          naxis = 2;
+        }
+
+        /* Maybe resample the SPARCO image. */
+        siunit = "radian"; // pixelsize and FOV are in SI units
+        cdelt1 = mira_convert_units(img.cunit1, siunit)*img.cdelt1;
+        cdelt2 = mira_convert_units(img.cunit2, siunit)*img.cdelt2;
+        if (is_void(pixelsize)) {
+          pixelsize = min(cdelt1, cdelt2);
+        }
+        if (is_void(dims)) {
+          if (is_void(fov)) {
+            fov1 = cdelt1*naxis1;
+            fov2 = cdelt2*naxis2;
+            fov = max(fov1, fov2);
+            dim1 = lround(fov1/pixelsize);
+            dim2 = lround(fov2/pixelsize);
+          } else {
+            dim1 = lround(fov/pixelsize);
+            dim2 = dim1;
+          }
+          dims = [2, dim1, dim2];
+        }
+      cunit = "mas";
+      cdelt = mira_convert_units(siunit, cunit)*pixelsize;
+      crpix1 = (dim1/2) + 1;
+      crpix2 = (dim2/2) + 1;
+      crval = 0.0;
+      img = mira_resample_image(img, pad=0, norm=1n,
+                              naxis1=dim1,   naxis2=dim2,
+                              crpix1=crpix1, crpix2=crpix2,
+                              crval1=crval,  crval2=crval,
+                              cdelt1=cdelt,  cdelt2=cdelt,
+                              cunit1=cunit,  cunit2=cunit);
+      eq_nocopy, image, img.arr;
     } else {
       opt_error, "the " + sparco + " model is not implemented in sparco";
     };
-  };
+  } else {
+    opt_error, "no sparco model specified ";
+  } ;
 
-h_set, plugin, w0=w0;
+h_set, plugin, w0=w0, image=image;
 
 }
 
@@ -91,6 +157,7 @@ func tweak_complex_gradient (master, grd)
   Takes the complex gradient on the image and
   normalise it to take into account SPARCO
 
+  SEE ALSO: mira_sparco_star, mira_sparco_UD, mira_sparco_binary.
 */
 {
 
@@ -272,6 +339,56 @@ func mira_sparco_UD(master, vis)
 
   vis_re = vis_re * fd + fs * V_UD;
   vis_im = vis_im * fd;
+
+  vis_re /= ftot;
+  vis_im /= ftot;
+
+  vis = [vis_re, vis_im];
+  vis = transpose(vis);
+
+//  h_set, master, model_vis_re = vis_re, model_vis_im = vis_im, model_vis = vis;
+
+  return vis;
+};
+
+func mira_sparco_imageBB(master, vis)
+  /* DOCUMENT mira_sparco_imageBB(master);
+
+     Compute the total complex visibilities by adding a predefined image (im0)
+     the reconstructed image using the im0-to-total flux ratio (fim0) and
+     the Black Body temperatures of the two images (T0, Timg)
+     fim0 = fim0 * BB(T0, lambda) / BB(T0, lam0)
+     fd = (1-fim0) * BB(Timg, lambda) / BB(Timg, lam0)
+     Vtot = fd*Vimg + fim0*Vimg0
+     Vtot /= fd +fim0
+
+     SEE ALSO: mira_sparco_star, mira_sparco_binary.
+   */
+{
+  local vis, vis_re, vis_im, vis_amp, vis_phi, fs0, denv, B;
+
+  vis_re = vis(1,..);
+  vis_im = vis(2,..);
+
+  fim0 = master.plugin.params(1);
+  T0 = master.plugin.params(2);
+  Tim = master.plugin.params(3);
+  w = mira_master_model_w;
+  w0 = master.plugin.w0;
+  img0 = master.plugin.image;
+  BB = []; //TODO Find a function for blackbody
+
+
+  fim = fim0 * BB(T0, w) / BB(T0, w0);
+  fd = (1-fim0) * BB(Tim, w) / BB(Tim, w0);
+  ftot = fim + fd;
+
+  Vimg0 = master.xform(img0);
+  Vimg0_re = Vimg0(1,..);
+  Vimg0_im = Vimg0(2,..);
+
+  vis_re = vis_re * fd + fim * Vim0_re;
+  vis_im = vis_im * fd + fim * Vim0_im;
 
   vis_re /= ftot;
   vis_im /= ftot;
