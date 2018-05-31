@@ -99,7 +99,7 @@ func tweak_complex_gradient (master, grd)
 
     fs0 = master.plugin.params(1);
     denv = master.plugin.params(2);
-    w = master.coords.unique.w;
+    w = mira_master_model_w;
     w0 = master.plugin.w0;
 
     fs = fs0 * (w/w0)^-4;
@@ -120,7 +120,7 @@ func tweak_complex_gradient (master, grd)
     fs0 = master.plugin.params(1);
     denv = master.plugin.params(2);
     fbin0 = master.plugin.params(3);
-    w = master.coords.unique.w;
+    w = mira_master_model_w;
     w0 = master.plugin.w0;
 
     fs = fs0 * (w/w0)^-4;
@@ -164,7 +164,7 @@ func mira_sparco_star(master)
 
   fs0 = master.plugin.params(1);
   denv = master.plugin.params(2);
-  w = master.coord.unique.w;
+  w = mira_master_model_w;
   w0 = master.plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
@@ -209,7 +209,7 @@ func mira_sparco_binary(master)
   fbin = master.plugin.params(3);
   xbin = master.plugin.params(4) * MIRA_MAS;
   ybin = master.plugin.params(5) * MIRA_MAS;
-  w = master.coords.unique.w;
+  w = mira_master_model_w;
   w0 = master.plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
@@ -217,8 +217,8 @@ func mira_sparco_binary(master)
   fd = (1-fs0-fbin0) * (w/w0)^denv;
   ftot = fs + fd + fbin;
 
-  u = master.coords.unique.u / w;
-  v = master.coords.unique.v / w;
+  u = mira_master_model_u / w;
+  v = mira_master_model_v / w;
 
   Vbin_re = cos( -2*pi*(xbin*u + ybin*v) );
   Vbin_im = sin( -2*pi*(xbin*u + ybin*v) );
@@ -257,15 +257,15 @@ func mira_sparco_UD(master, vis)
   fs0 = master.plugin.params(1);
   denv = master.plugin.params(2);
   UD = master.plugin.params(3) * MIRA_MAS;
-  w = master.coords.unique.w;
+  w = mira_master_model_w;
   w0 = master.plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
-  u = master.coords.unique.u / w;
-  v = master.coords.unique.v / w;
+  u = mira_master_model_u / w;
+  v = mira_master_model_v / w;
   B = abs(u,v);
 
   V_UD = 2*bessj1(pi * B * UD) / ( pi * B * UD);
