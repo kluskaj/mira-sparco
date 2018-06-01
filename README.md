@@ -7,12 +7,19 @@ This plugin is designed to work with [MiRA2](https://github.com/emmt/MiRA) direc
 
 ## Installation
 
-
-## Usage
+Either install it by copying it to MIRA_HOME or use the option
+-plugin=/the/path/to/sparco/mira2_plugin_sparco.i
 
 TODO
 
-## Models implemented
+## Usage
+
+add the following options to mira2
+-sparco_model=     the model you want to use (See Sect. Implemented Models)
+-sparco_params=    a vector of parameters corresponding to your sparco model (e.g. -params=0.4,1 )
+-sparco_w0=        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
+
+## Implemented Models
 
 * STAR: It adds a point source at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
 fs = fs0 * (lambda/lambda0)^-4
