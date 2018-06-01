@@ -26,7 +26,7 @@ add the following options to mira2:
 
 * **STAR:** It adds a point source at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
 
-fs = fs0 * (lambda/lambda0)^-4
+$$ fs = fs0 * (\lambda/\lambda_0)^-4 $$
 
 fd = (1-fs0) * (lambda/lambda0)^denv
 
