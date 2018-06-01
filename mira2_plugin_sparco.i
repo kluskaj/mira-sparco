@@ -5,10 +5,15 @@
  *
  */
 
-// MIRA_PLUGDIR = "~/apps/src/mira2_plugin_sparco";
+//MIRA_PLUGDIR = "~/apps/src/mira2_plugin_sparco";
 
 
 func mira_plugin_sparco_init(nil) {
+  /*DOCUMENT mira_plugin_sparco_init(nil);
+
+  Initialisation of the plugin from the parameters read in the
+  command line.
+  */
 
   inform, "Loading \"sparco\" plugin...";
 
@@ -44,19 +49,19 @@ func parse_options(plugin, opt)
   plugin.params = vector of necessary parameters for the
                          models
   plugin.w0 = central wavelenghts for computation of chromaticity
-  plugin.func = function to linearly add the SPARCO model to
-                            complex visibilities from the image.
 
   plugin.image = a fits-file with the image that will be used as a
                         SPARCO model
 
-  Creation of plugin hash_table in this function ?
 */
 
 {
   local sparco, params, w0, image;
 
-  // h_set, opt, flags=opt.flags | MIRA_KEEP_WAVELENGTH;
+  h_set, opt, flags=opt.flags | MIRA_KEEP_WAVELENGTH;
+
+  /* Modify options if needed, for example xmin xmax
+  h_set, opt, an_option=my_needed_value;
 
   /* Read SPARCO settings */
   sparco = opt.sparco_model;
@@ -255,7 +260,7 @@ func tweak_gradient (master, grd)
 
 
 func mira_sparco_star(master, vis)
-  /* DOCUMENT mira_sparco_star(master);
+  /* DOCUMENT mira_sparco_star(master, vis);
 
      Compute the total complex visibilities by adding a point source at
      the center of the image using the stellar-to-total flux ratio (fs0) and
@@ -299,7 +304,7 @@ func mira_sparco_star(master, vis)
 };
 
 func mira_sparco_binary(master, vis)
-  /* DOCUMENT mira_sparco_binary(master);
+  /* DOCUMENT mira_sparco_binary(master, vis);
 
      Compute the total complex visibilities by adding two point sources at
      (one being at the center of the image) using the flux ratios (fs0, fbin0),
@@ -323,7 +328,7 @@ func mira_sparco_binary(master, vis)
 
   fs0 = plugin.params(1);
   denv = plugin.params(2);
-  fbin = plugin.params(3);
+  fbin0 = plugin.params(3);
   xbin = plugin.params(4) * MIRA_MAS;
   ybin = plugin.params(5) * MIRA_MAS;
   w = mira_model_wave(master);
@@ -353,7 +358,7 @@ func mira_sparco_binary(master, vis)
 };
 
 func mira_sparco_UD(master, vis)
-  /* DOCUMENT mira_sparco_UD(master);
+  /* DOCUMENT mira_sparco_UD(master, vis);
 
      Compute the total complex visibilities by adding a Uniform Disk at
      the center of the image using the stellar-to-total flux ratio (fs0) and
@@ -404,7 +409,7 @@ func mira_sparco_UD(master, vis)
 };
 
 func mira_sparco_imageBB(master, vis)
-  /* DOCUMENT mira_sparco_imageBB(master);
+  /* DOCUMENT mira_sparco_imageBB(master, vis);
 
      Compute the total complex visibilities by adding a predefined image (im0)
      the reconstructed image using the im0-to-total flux ratio (fim0) and
@@ -456,8 +461,12 @@ func mira_sparco_imageBB(master, vis)
 };
 
 func add_keywords (master, fh)
-/*
+/* DOCUMENT add_keywords (master, fh);
 
+    This function adds the sparco plugin add_keywords
+    to the finale saved fits file.
+
+    SEE ALSO: add_extension.
 */
 {
   plugin = mira_plugin(master);
@@ -468,12 +477,18 @@ func add_keywords (master, fh)
 }
 
 func add_extension (master, fh)
-/*
+/* DOCUMENT add_extension (master, fh);
 
+    This function adds the sparco plugin add_keywords
+    to the finale saved fits file.
+
+    SEE ALSO: add_keywords.
 */
 {
   plugin = mira_plugin(master);
 
   fits_new_hdu, fh, "IMAGE", "SPARCO adds an extension";
+  fits_write_array, fh, random(128,128);
+  fits_pad_hdu, fh;
 
 }
