@@ -14,10 +14,13 @@ TODO
 
 ## Usage
 
-add the following options to mira2
--sparco_model=     the model you want to use (See Sect. Implemented Models)
--sparco_params=    a vector of parameters corresponding to your sparco model (e.g. -params=0.4,1 )
--sparco_w0=        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
+add the following options to mira2:
+
+´-sparco_model=´     the model you want to use (See Sect. Implemented Models)
+
+´-sparco_params=´    a vector of parameters corresponding to your sparco model (e.g. ´-params=0.4,1´ )
+
+´-sparco_w0=ś        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
 
 ## Implemented Models
 
