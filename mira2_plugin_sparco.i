@@ -1,25 +1,53 @@
 /*
- * mira-sparco.i
+ * mira2_plugin_sparco.i
  *
  * Implement the SPARCO plugin to mira2
  *
  */
 
+// MIRA_PLUGDIR = "~/apps/src/mira2_plugin_sparco";
 
-func parse_arguments (plugin, opt)
-/* DOCUMENT parse_arguments(plugin, opt)
+
+func mira_plugin_sparco_init(nil) {
+
+  inform, "Loading \"sparco\" plugin...";
+
+  SPARCO_options = _lst("\nSparco specific options",
+    _lst("sparco_model", "star", "NAME", OPT_STRING,
+         "Name of the SPARCO model used"),
+    _lst("sparco_params", [], "VALUES", OPT_REAL_LIST,
+         "Parameters used with SPARCO"),
+    _lst("sparco_w0", [], "VALUE", OPT_REAL,
+         "Central wavelength (in microns) for SPARCO"),
+    _lst("sparco_image", [], "NAME", OPT_STRING,
+         "Name of the fits file that will be used for SPARCO/IMAGE")
+         );
+
+  plugin = mira_new_plugin(options = SPARCO_options,
+                parse_options = parse_options,
+                tweak_visibilities=tweak_visibilities,
+                tweak_gradient=tweak_gradient,
+                add_keywords=add_keywords,
+                add_extensions=add_extensions
+                  );
+
+  return plugin;
+}
+
+func parse_options(plugin, opt)
+/* DOCUMENT parse_options(plugin, opt)
 
   plugin is a hash_table with following arguments:
 
-  plugin.sparco_model = name of the model in SPARCO. It can be:
+  plugin.model = name of the model in SPARCO. It can be:
                        "star", "binary", "UD".
-  plugin.sparco_params = vector of necessary parameters for the
+  plugin.params = vector of necessary parameters for the
                          models
-  plugin.sparco_w0 = central wavelenghts for computation of chromaticity
-  plugin.sparco_func = function to linearly add the SPARCO model to
+  plugin.w0 = central wavelenghts for computation of chromaticity
+  plugin.func = function to linearly add the SPARCO model to
                             complex visibilities from the image.
 
-  plugin.sparco_image = a fits-file with the image that will be used as a
+  plugin.image = a fits-file with the image that will be used as a
                         SPARCO model
 
   Creation of plugin hash_table in this function ?
@@ -28,11 +56,13 @@ func parse_arguments (plugin, opt)
 {
   local sparco, params, w0, image;
 
+  // h_set, opt, flags=opt.flags | MIRA_KEEP_WAVELENGTH;
+
   /* Read SPARCO settings */
-  sparco = plugin.sparco_model;
-  params = plugin.sparco_params;
-  w0 = plugin.sparco_w0;
-  image = plugin.sparco_image;
+  sparco = opt.sparco_model;
+  params = opt.sparco_params;
+  w0 = opt.sparco_w0;
+  image = opt.sparco_image;
 
   if ( !is_void(w0) ) {
     w0 *= 1e-6;
@@ -40,22 +70,25 @@ func parse_arguments (plugin, opt)
 
   if (!is_void(sparco)) {
     if (sparco=="star") {
-      if (numberof(params)!=2 | params(1) >=1. | params(1) <0.) {
-        opt_error, "sparco/star takes a 2-parameters vector for ´-params´: [fs,denv].";
+      if (numberof(params)!=2 ) {
+        opt_error, "sparco/star takes a 2-parameters vector for ´-sparco_params´: [fs,denv].";
       };
+      if (params(1) >=1. | params(1) <0.) {
+        opt_error, "uncorrect value for the first sparco parameter fs. Should be: 0 <= fs < 1";
+      }
     } else if (sparco == "binary") {
       if (numberof(params)!=5 | params(1) >=1 | params(1) <0 | params(3) >=1 | params(3) <0 | params(1) + params(3) >= 1) {
-        opt_error, "sparco/binary takes a 5-parameters vector for ´-params´: [fs,denv,fbin,xbin,ybin].";
+        opt_error, "sparco/binary takes a 5-parameters vector for ´-sparco_params´: [fs,denv,fbin,xbin,ybin].";
       };
     } else if (sparco == "UD") {
       if (numberof(params)!=3 | params(1) >=1 | params(1) <0) {
-        opt_error, "sparco/UD takes a 3-parameters vector for ´-params´: [fs,denv,UD].";
+        opt_error, "sparco/UD takes a 3-parameters vector for ´-sparco_params´: [fs,denv,UD].";
       };
     } else if (sparco == "image") {
       opt_error, "not implemented yet...";
     } else if (sparco == "imageBB") {
       if (numberof(params)!=3 | params(1) >=1 | params(1) <0 | params(2)<=0 | params(3)<=0 ) {
-        opt_error, "sparco/UD takes a 3-parameters vector for ´-params´: [fim0,T0,Timg].";
+        opt_error, "sparco/UD takes a 3-parameters vector for ´-sparco_params´: [fim0,T0,Timg].";
       } else if ( !is_string(image) ) {
         opt_error, "sparco/imageBB takes an string with the name of the fits file";
       } else {
@@ -114,19 +147,27 @@ func parse_arguments (plugin, opt)
                               cdelt1=cdelt,  cdelt2=cdelt,
                               cunit1=cunit,  cunit2=cunit);
       eq_nocopy, image, img.arr;
-    } else {
-      opt_error, "the " + sparco + " model is not implemented in sparco";
     };
   } else {
+    opt_error, "the " + sparco + " model is not implemented in sparco";
+  };
+} else {
     opt_error, "no sparco model specified ";
-  } ;
+};
 
-h_set, plugin, w0=w0, image=image;
+inform, "SPARCO will be run with model "+sparco;
+inform, "SPARCO has these parameters "+pr1(params);
+inform, "SPARCO will use this w0 "+pr1(w0);
+
+h_set, plugin, model=sparco,
+               params=params,
+               w0=w0,
+               image=image;
 
 }
 
 
-func tweak_complex_visibilities (master, vis)
+func tweak_visibilities (master, vis)
 /* DOCUMENT tweak_complex_visibilities (master, vis);
 
   Takes the complex visibilities from the image and
@@ -135,23 +176,27 @@ func tweak_complex_visibilities (master, vis)
 
 */
 {
+ plugin = mira_plugin(master);
 
- if (master.plugin.sparco == "star") {
+ if (plugin.model == "star") {
    vis = mira_sparco_star(master, vis);
- } else if (master.plugin.sparco == "binary") {
+ } else if (plugin.model == "binary") {
    vis = mira_sparco_binary(master, vis);
- } else if (master.plugin.sparco == "UD") {
+ } else if (plugin.model == "UD") {
    vis = mira_sparco_UD(master, vis);
- } else if (master.plugin.sparco == "image") {
+ } else if (plugin.model == "image") {
    throw, "not implemented yet...";
    vis = mira_sparco_image(master, vis);
+ } else {
+   throw, "do not understand the sparco model used: "+plugin.model;
+
  };
 
 return vis;
 }
 
 
-func tweak_complex_gradient (master, grd)
+func tweak_gradient (master, grd)
 /* DOCUMENT tweak_complex_gradient (master, grd);
 
   Takes the complex gradient on the image and
@@ -160,17 +205,16 @@ func tweak_complex_gradient (master, grd)
   SEE ALSO: mira_sparco_star, mira_sparco_UD, mira_sparco_binary.
 */
 {
-
+  plugin = mira_plugin(master);
   /* Gradient modification for SPARCO */
-  if (master.plugin.sparco == "star" | master.plugin.sparco == "UD" | master.plugin.sparco == "image") {
+  if (plugin.model == "star" | plugin.model == "UD" | plugin.model == "image") {
+    fs0 = plugin.params(1);
+    denv = plugin.params(2);
+    w = mira_model_wave(master);
+    w0 = plugin.w0;
 
-    fs0 = master.plugin.params(1);
-    denv = master.plugin.params(2);
-    w = mira_master_model_w;
-    w0 = master.plugin.w0;
-
-    fs = fs0 * (w/w0)^-4;
-    fd = (1-fs0) * (w/w0)^denv;
+    fs = fs0 * (w/w0)^-4.;
+    fd = (1.-fs0) * (w/w0)^denv;
     ftot = fs + fd;
 
     grd_re = grd(1,..);
@@ -182,13 +226,13 @@ func tweak_complex_gradient (master, grd)
     grd = [grd_re, grd_im];
     grd = transpose(grd);
 
-  } else if ( master.plugin.sparco == "binary") {
+  } else if ( plugin.model == "binary") {
 
-    fs0 = master.plugin.params(1);
-    denv = master.plugin.params(2);
-    fbin0 = master.plugin.params(3);
-    w = mira_master_model_w;
-    w0 = master.plugin.w0;
+    fs0 = plugin.params(1);
+    denv = plugin.params(2);
+    fbin0 = plugin.params(3);
+    w = mira_model_wave(master);
+    w0 = plugin.w0;
 
     fs = fs0 * (w/w0)^-4;
     fbin = fbin0 * (w/w0)^-4;
@@ -210,7 +254,7 @@ func tweak_complex_gradient (master, grd)
 }
 
 
-func mira_sparco_star(master)
+func mira_sparco_star(master, vis)
   /* DOCUMENT mira_sparco_star(master);
 
      Compute the total complex visibilities by adding a point source at
@@ -229,10 +273,14 @@ func mira_sparco_star(master)
   vis_re = vis(1,..);
   vis_im = vis(2,..);
 
-  fs0 = master.plugin.params(1);
-  denv = master.plugin.params(2);
-  w = mira_master_model_w;
-  w0 = master.plugin.w0;
+  plugin = mira_plugin(master);
+  params = plugin.params;
+
+
+  fs0 = params(1);
+  denv = params(2);
+  w = mira_model_wave(master);
+  w0 = plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
   fd = (1-fs0) * (w/w0)^denv;
@@ -250,7 +298,7 @@ func mira_sparco_star(master)
   return vis;
 };
 
-func mira_sparco_binary(master)
+func mira_sparco_binary(master, vis)
   /* DOCUMENT mira_sparco_binary(master);
 
      Compute the total complex visibilities by adding two point sources at
@@ -271,21 +319,23 @@ func mira_sparco_binary(master)
   vis_re = vis(1,..);
   vis_im = vis(2,..);
 
-  fs0 = master.plugin.params(1);
-  denv = master.plugin.params(2);
-  fbin = master.plugin.params(3);
-  xbin = master.plugin.params(4) * MIRA_MAS;
-  ybin = master.plugin.params(5) * MIRA_MAS;
-  w = mira_master_model_w;
-  w0 = master.plugin.w0;
+  plugin = mira_plugin(master);
+
+  fs0 = plugin.params(1);
+  denv = plugin.params(2);
+  fbin = plugin.params(3);
+  xbin = plugin.params(4) * MIRA_MAS;
+  ybin = plugin.params(5) * MIRA_MAS;
+  w = mira_model_wave(master);
+  w0 = plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
   fbin = fbin0 * (w/w0)^-4;
   fd = (1-fs0-fbin0) * (w/w0)^denv;
   ftot = fs + fd + fbin;
 
-  u = mira_master_model_u / w;
-  v = mira_master_model_v / w;
+  u = mira_model_u(master) / w;
+  v = mira_model_v(master) / w;
 
   Vbin_re = cos( -2*pi*(xbin*u + ybin*v) );
   Vbin_im = sin( -2*pi*(xbin*u + ybin*v) );
@@ -321,18 +371,20 @@ func mira_sparco_UD(master, vis)
   vis_re = vis(1,..);
   vis_im = vis(2,..);
 
-  fs0 = master.plugin.params(1);
-  denv = master.plugin.params(2);
-  UD = master.plugin.params(3) * MIRA_MAS;
-  w = mira_master_model_w;
-  w0 = master.plugin.w0;
+  plugin = mira_plugin(master);
+
+  fs0 = plugin.params(1);
+  denv = plugin.params(2);
+  UD = plugin.params(3) * MIRA_MAS;
+  w = mira_model_wave(master);
+  w0 = plugin.w0;
 
   fs = fs0 * (w/w0)^-4;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
-  u = mira_master_model_u / w;
-  v = mira_master_model_v / w;
+  u = mira_model_u(master) / w;
+  v = mira_model_v(master) / w;
   B = abs(u,v);
 
   V_UD = 2*bessj1(pi * B * UD) / ( pi * B * UD);
@@ -370,12 +422,14 @@ func mira_sparco_imageBB(master, vis)
   vis_re = vis(1,..);
   vis_im = vis(2,..);
 
-  fim0 = master.plugin.params(1);
-  T0 = master.plugin.params(2);
-  Tim = master.plugin.params(3);
-  w = mira_master_model_w;
-  w0 = master.plugin.w0;
-  img0 = master.plugin.image;
+  plugin = mira_plugin(master);
+
+  fim0 = plugin.params(1);
+  T0 = plugin.params(2);
+  Tim = plugin.params(3);
+  w = mira_model_wave(master);
+  w0 = plugin.w0;
+  img0 = plugin.image;
   BB = []; //TODO Find a function for blackbody
 
 
@@ -400,3 +454,26 @@ func mira_sparco_imageBB(master, vis)
 
   return vis;
 };
+
+func add_keywords (master, fh)
+/*
+
+*/
+{
+  plugin = mira_plugin(master);
+
+  fits_set, fh, "SMODEL",  plugin.model,  "Model used in SPARCO";
+  fits_set, fh, "SWAVE0",  plugin.w0,  "Central wavelength (mum) for chromatism";
+
+}
+
+func add_extension (master, fh)
+/*
+
+*/
+{
+  plugin = mira_plugin(master);
+
+  fits_new_hdu, fh, "IMAGE", "SPARCO adds an extension";
+
+}
