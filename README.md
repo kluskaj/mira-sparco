@@ -7,7 +7,6 @@ This plugin is designed to work with [MiRA2](https://github.com/emmt/MiRA) direc
 
 ## Installation
 
-TODO
 
 ## Usage
 
