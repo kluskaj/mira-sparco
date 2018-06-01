@@ -16,31 +16,44 @@ TODO
 
 add the following options to mira2:
 
-´-sparco_model=´     the model you want to use (See Sect. Implemented Models)
+´´´-sparco_model=´´´     the model you want to use (See Sect. Implemented Models)
 
-´-sparco_params=´    a vector of parameters corresponding to your sparco model (e.g. ´-params=0.4,1´ )
+´´´-sparco_params=´´´    a vector of parameters corresponding to your sparco model (e.g. ´´´-params=0.4,1´´´ )
 
-´-sparco_w0=ś        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
+´´´-sparco_w0=´´´        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
 
 ## Implemented Models
 
-* STAR: It adds a point source at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
+* **STAR:** It adds a point source at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
+
 fs = fs0 * (lambda/lambda0)^-4
+
 fd = (1-fs0) * (lambda/lambda0)^denv
+
 Vtot = fd*Vimg + fs
+
 Vtot /= fd +fs
 
-* BINARY: It adds two point sources (one being at the center of the image) using the flux ratios (fs0, fbin0), the spectral index of the environment (denv) and the positions of the secondary (xbin amnd ybin).
+* **BINARY:** It adds two point sources (one being at the center of the image) using the flux ratios (fs0, fbin0), the spectral index of the environment (denv) and the positions of the secondary (xbin amnd ybin).
+
 fs = fs0 * (lambda/lambda0)^-4
+
 fbin = fbin0 * (lambda/lambda0)^-4
+
 fd = (1-fs0) * (lambda/lambda0)^denv
+
 Vtot = fd*Vimg + fs + fbin*Vbin
+
 Vtot /= fd + fs + fbin
 
-* UD: It adds a Uniform Disk at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
+* **UD:** It adds a Uniform Disk at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
+
 fs = fs0 * (lambda/lambda0)^-4
+
 fd = (1-fs0) * (lambda/lambda0)^denv
+
 Vtot = fd*Vimg + fs*V_UD
+
 Vtot /= fd +fs
 
 
