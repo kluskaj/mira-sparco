@@ -14,6 +14,9 @@ TODO
 
 ## Models implemented
 
+###STAR
+###BINARY
+###UD
 
 
 ## Contact
