@@ -259,7 +259,7 @@ func tweak_visibilities (master, vis)
    star = _get_spectrum(plugin.startype, w, w0,
       index=plugin.starindex, temp=plugin.startemp,
       file=plugin.starfile);
-   h_set, plugin, starspectrum = star,
+   h_set, plugin, star_spectrum = star,
                   starinit=0n;
  }
 
@@ -301,7 +301,7 @@ func tweak_gradient (master, grd)
     w = mira_model_wave(master);
     w0 = plugin.w0;
 
-    fs = fs0 * plugin.starspectrum;
+    fs = fs0 * plugin.star_spectrum;
     fd = (1.-fs0) * (w/w0)^denv;
     ftot = fs + fd;
 
@@ -322,7 +322,7 @@ func tweak_gradient (master, grd)
     w = mira_model_wave(master);
     w0 = plugin.w0;
 
-    fs = fs0 * plugin.starspectrum;
+    fs = fs0 * plugin.star_spectrum;
     fbin = fbin0 * (w/w0)^-4;
     fd = (1-fs0-fbin0) * (w/w0)^denv;
     ftot = fs + fd + fbin;
@@ -370,7 +370,7 @@ func mira_sparco_star(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.starspectrum;
+  fs = fs0 * plugin.star_spectrum;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
@@ -414,8 +414,8 @@ func mira_sparco_starBB(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.starspectrum;
-  fd = (1-fs0) * _BB(Tim, w) / _BB(Tim, w0);
+  fs = fs0 * plugin.star_spectrum;
+  fd = (1-fs0) * _BB(T, w) / _BB(T, w0);
   ftot = fs + fd;
 
   vis_re = vis_re * fd + fs;
@@ -462,7 +462,7 @@ func mira_sparco_binary(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.starspectrum;
+  fs = fs0 * plugin.star_spectrum;
   fbin = fbin0 * (w/w0)^-4;
   fd = (1-fs0-fbin0) * (w/w0)^denv;
   ftot = fs + fd + fbin;
@@ -512,7 +512,7 @@ func mira_sparco_UD(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.starspectrum;
+  fs = fs0 * plugin.star_spectrum;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
@@ -566,7 +566,7 @@ func mira_sparco_imageBB(master, vis)
   BB = []; //TODO Find a function for blackbody
 
 
-  fim = fim0 * plugin.starspectrum;
+  fim = fim0 * plugin.star_spectrum;
   fd = (1-fim0) * _BB(Tim, w) / _BB(Tim, w0);
   ftot = fim + fd;
 
