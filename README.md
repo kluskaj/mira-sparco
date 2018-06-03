@@ -16,11 +16,17 @@ TODO
 
 add the following options to mira2:
 
-`-sparco_model=`     the model you want to use (See Sect. Implemented Models)
+`-sparco_model=`      the model you want to use (See Sect. Implemented Models)
 
-`-sparco_params=`    a vector of parameters corresponding to your sparco model (e.g. `-params=0.4,1` )
+`-sparco_params=`     a vector of parameters corresponding to your sparco model (e.g. `-params=0.4,1` )
 
-`-sparco_w0=`        central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
+`-sparco_w0=`         central wavelengths for flux power laws computation for chromaticity (See Sect. Implemented Models)
+
+`-sparco_star_type=`  Type of spectral behavior for the star. Can be either: "pow" for a power law, "BB" for a blackbody
+
+`-sparco_star_index=` if `-sparco_star_type=pow` then the stellar spectral index needs to be specified (default: `-sparco_star_index=-4`)
+
+`-sparco_star_temp=` if `-sparco_star_type=BB` then the stellar black body temperature needs to be specified (default: `-sparco_star_temp=10000`)
 
 ## Implemented Models
 
