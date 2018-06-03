@@ -32,7 +32,7 @@ add the following options to mira2:
 
 * **STAR:** It adds a point source at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
 
-fs = fs0 * (lambda/lambda_0)^-4
+fs = fs0 * stellar_spectrum
 
 fd = (1-fs0) * (lambda/lambda0)^denv
 
@@ -42,7 +42,7 @@ Vtot /= fd +fs
 
 * **BINARY:** It adds two point sources (one being at the center of the image) using the flux ratios (fs0, fbin0), the spectral index of the environment (denv) and the positions of the secondary (xbin amnd ybin).
 
-fs = fs0 * (lambda/lambda0)^-4
+fs = fs0 * stellar_spectrum
 
 fbin = fbin0 * (lambda/lambda0)^-4
 
@@ -54,7 +54,7 @@ Vtot /= fd + fs + fbin
 
 * **UD:** It adds a Uniform Disk at the center of the image using the stellar-to-total flux ratio (fs0) and the spectral index of the environment (denv)
 
-fs = fs0 * (lambda/lambda0)^-4
+fs = fs0 * stellar_spectrum
 
 fd = (1-fs0) * (lambda/lambda0)^denv
 
