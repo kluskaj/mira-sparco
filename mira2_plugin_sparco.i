@@ -33,7 +33,7 @@ func mira_plugin_sparco_init(nil) {
     _lst("sparco_star_index", [], "VALUE", OPT_REAL,
          "Stellar spectral index"),
     _lst("sparco_star_temp", [], "VALUE", OPT_REAL,
-         "Stellar temperature for blackbody"),
+         "Stellar temperature for blackbody")
          );
 
   plugin = mira_new_plugin(options = SPARCO_options,
@@ -178,15 +178,13 @@ inform, "SPARCO has these parameters "+pr1(params);
 inform, "SPARCO will use this w0 "+pr1(w0);
 
 if (!is_void(startype)) {
-  if (startype=="BB" | startype=="blackbody" | startype=="bbody") {
+  if (startype=="BB" | startype=="blackbody" | startype=="bbody" | startype=="bb") {
     if ( !is_void(startemp) )  {
       if (startemp > 1000.)
-      inform, "The star has a black body spectrum with T=%g K \n", statemp;
+      inform, "The star has a black body spectrum with T=%g K \n", startemp;
       startype = "BB";
     } else {
-      throw, "If you want to use a blackbody spectrum for the star, /
-      you must specify a temperature by using the option/
-       `-sparco_star_temp=`"
+      throw, "If you want to use a blackbody spectrum for the star, you must specify a temperature by using the option `-sparco_star_temp=` "
     };
   } else if (startype=="spectrum") {
     throw, "FIXME: implement the loading of the ascii file";
@@ -235,7 +233,7 @@ func _get_spectrum(type, w, w0, index=, temp=, file=)
   if (type == "pow") {
   star = (w/w0)^index;
 } else if (plugin.startype == "BB") {
-  star = BB(w,temp)/BB(w0,temp);
+  star = _BB(w,temp)/_BB(w0,temp);
 } else {
   throw, "Spectrum not implemented yet";
 }
@@ -258,8 +256,8 @@ func tweak_visibilities (master, vis)
  if (plugin.starinit) {
    w = mira_model_wave(master);
    w0 = plugin.w0;
-   star = _get_spectrum(plugin.startype, w, w0,\
-      index=plugin.starindex, temp=plugin.startemp\
+   star = _get_spectrum(plugin.startype, w, w0,
+      index=plugin.starindex, temp=plugin.startemp,
       file=plugin.starfile);
    h_set, plugin, starspectrum = star,
                   starinit=0n;
@@ -303,7 +301,7 @@ func tweak_gradient (master, grd)
     w = mira_model_wave(master);
     w0 = plugin.w0;
 
-    fs = fs0 * plugin.star;
+    fs = fs0 * plugin.starspectrum;
     fd = (1.-fs0) * (w/w0)^denv;
     ftot = fs + fd;
 
@@ -324,7 +322,7 @@ func tweak_gradient (master, grd)
     w = mira_model_wave(master);
     w0 = plugin.w0;
 
-    fs = fs0 * plugin.star;
+    fs = fs0 * plugin.starspectrum;
     fbin = fbin0 * (w/w0)^-4;
     fd = (1-fs0-fbin0) * (w/w0)^denv;
     ftot = fs + fd + fbin;
@@ -372,7 +370,7 @@ func mira_sparco_star(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.star;
+  fs = fs0 * plugin.starspectrum;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
@@ -416,8 +414,8 @@ func mira_sparco_starBB(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.star;
-  fd = (1-fs0) * BB(Tim, w) / BB(Tim, w0);
+  fs = fs0 * plugin.starspectrum;
+  fd = (1-fs0) * _BB(Tim, w) / _BB(Tim, w0);
   ftot = fs + fd;
 
   vis_re = vis_re * fd + fs;
@@ -464,7 +462,7 @@ func mira_sparco_binary(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.star;
+  fs = fs0 * plugin.starspectrum;
   fbin = fbin0 * (w/w0)^-4;
   fd = (1-fs0-fbin0) * (w/w0)^denv;
   ftot = fs + fd + fbin;
@@ -514,7 +512,7 @@ func mira_sparco_UD(master, vis)
   w = mira_model_wave(master);
   w0 = plugin.w0;
 
-  fs = fs0 * plugin.star;
+  fs = fs0 * plugin.starspectrum;
   fd = (1-fs0) * (w/w0)^denv;
   ftot = fs + fd;
 
@@ -568,8 +566,8 @@ func mira_sparco_imageBB(master, vis)
   BB = []; //TODO Find a function for blackbody
 
 
-  fim = fim0 * plugin.star;
-  fd = (1-fim0) * BB(Tim, w) / BB(Tim, w0);
+  fim = fim0 * plugin.starspectrum;
+  fd = (1-fim0) * _BB(Tim, w) / _BB(Tim, w0);
   ftot = fim + fd;
 
   Vimg0 = master.xform(img0);
@@ -604,9 +602,12 @@ func add_keywords (master, fh)
   fits_set, fh, "SMODEL",  plugin.model,  "Model used in SPARCO";
   fits_set, fh, "SWAVE0",  plugin.w0,  "Central wavelength (mum) for chromatism";
   fits_set, fh, "SWAVE0",  plugin.startype,  "Central wavelength (mum) for chromatism";
-  fits_set, fh, "STTYPE",  plugin.star,  "Spectral model for star";
-  fits_set, fh, "STTEMP",  plugin.startemp,  "Temperature of the star";
-  fits_set, fh, "STINDE",  plugin.starindex,  "Spectral index of the star";
+  fits_set, fh, "STTYPE",  plugin.startype,  "Spectral model for star";
+  if (plugin.startype == "BB") {
+    fits_set, fh, "STTEMP",  plugin.startemp,  "Temperature of the star";
+  } else if (plugin.startype == "pow") {
+    fits_set, fh, "STINDE",  plugin.starindex,  "Spectral index of the star";
+  }
 
 }
 
@@ -629,8 +630,8 @@ func add_extension (master, fh)
 
 }
 
-func BB(lambda, T)
-    /* DOCUMENT BB(lambda, T);
+func _BB(lambda, T)
+    /* DOCUMENT _BB(lambda, T);
 
        DESCRIPTION
        Computatiof black body radiation function with a given temperature T
