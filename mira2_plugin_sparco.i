@@ -601,7 +601,6 @@ func add_keywords (master, fh)
 
   fits_set, fh, "SMODEL",  plugin.model,  "Model used in SPARCO";
   fits_set, fh, "SWAVE0",  plugin.w0,  "Central wavelength (mum) for chromatism";
-  fits_set, fh, "SWAVE0",  plugin.startype,  "Central wavelength (mum) for chromatism";
   fits_set, fh, "STTYPE",  plugin.startype,  "Spectral model for star";
   if (plugin.startype == "BB") {
     fits_set, fh, "STTEMP",  plugin.startemp,  "Temperature of the star";
